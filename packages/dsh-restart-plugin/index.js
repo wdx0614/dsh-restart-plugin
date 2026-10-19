@@ -338,9 +338,21 @@ export function requestRestart(ctx, options = {}) {
   if (!watchdog.ok) return { ok: false, reason: 'watchdog-failed', message: watchdog.message, logPath: watchdog.logPath }
   const delayMs = options.delayMs ?? 250
   const timer = setTimeout(() => {
-    // 只结束外壳主进程，不整棵杀：
-    // 外壳一退，Host 的 IPC 通道断开，desktop-host 会走它自带的优雅停止流程
-    // （flush 会话、关闭存储、结束子进程），这正是「正常退出」应有的顺序。
+    // 关闭外壳。这里有讲究，直接决定会不会留下「幽灵托盘图标」：
+    //
+    // process.kill(shellPid) 在 Windows 上等价于 TerminateProcess，
+    // 外壳会**当场死掉**，它的 before-quit / finishQuit() 根本来不及跑，
+    // 于是 tray.dispose() 被跳过 —— 通知区域就留下一个悬停才消失的旧图标。
+    // 这正是真机观测到的「两个托盘图标」。
+    //
+    // 正确做法：让外壳收到「正常退出」请求，走它自己的退出流程
+    // （finishQuit → tray.dispose → app.quit）。但纯插件不能调用 app.quit()，
+    // 所以分两步：
+    //   1) 先给外壳发一个温和的关闭信号，让它有机会清理托盘；
+    //   2) 若外壳在短时间内没退出，再退回强制结束（保证重启一定成功）。
+    //
+    // 注意 Windows 没有真正的 SIGTERM 语义，process.kill 就是强杀，
+    // 因此这里的「温和」只能靠 Host 侧先优雅退出 → 外壳因子进程消失而退出。
     try {
       if (shellPid > 0) process.kill(shellPid)
     } catch (error) {
