@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Restart",
+    "description": "Adds a Restart entry to the sidebar foot: closes DeepSeek Harness and opens it again automatically, so plugin changes can take effect without quitting and relaunching by hand."
+  }
+}

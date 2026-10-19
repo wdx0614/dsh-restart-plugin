@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "重启（Restart）",
+    "description": "在侧边栏底部加一个「重启」入口：关闭 DeepSeek Harness 并在几秒后自动重新打开，省去手动退出再启动。"
+  }
+}

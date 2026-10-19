@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Restart">
+  <!-- 原创图标：环形箭头 + 右上缺口箭头尖，表示「重新启动」。 -->
+  <g fill="none" stroke="#356ae6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M54 22.5A23 23 0 1 0 55 34" />
+    <path d="M56.5 9.5v14h-14" />
+  </g>
+</svg>

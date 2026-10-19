@@ -1,0 +1,6 @@
+# dsh-restart-plugin bundle 层：插入本插件的 Host 行。
+# Host 半负责：重启前的任务检查、看门狗拉起、优雅关闭。
+- insert:
+    - id: dsh-restart-plugin
+      name: 'dsh-restart-plugin'
+      config: {}

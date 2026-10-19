@@ -1,0 +1,5 @@
+.recon/
+node_modules/
+.ai_backup/
+.ai_trash/
+*.log
