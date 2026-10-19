@@ -142,10 +142,11 @@ test('宽栏与收起栏两种形态都能渲染出按钮节点', () => {
 
   const wide = component({ t, wide: true })
   assert.equal(wide.props['data-dsh-restart-plugin'], '')
-  // 宽栏下应渲染出带文字的按钮。
+  // 宽栏下保留「重启」文字作为显著标识（2026-10-19：最初去掉文字后用户要求加回）。
   const wideButton = wide.children.find(child => child?.props?.className === 'rsp-btn')
   assert.ok(wideButton)
   assert.equal(wideButton.props['aria-label'], 'T:action.aria')
+  assert.equal(wideButton.props['title'], 'T:action.aria')
   assert.equal(wideButton.props['data-rail'], undefined)
   const hasLabel = JSON.stringify(wideButton.children).includes('T:action.label')
   assert.equal(hasLabel, true)
@@ -153,8 +154,9 @@ test('宽栏与收起栏两种形态都能渲染出按钮节点', () => {
   const rail = component({ t, wide: false })
   const railButton = rail.children.find(child => child?.props?.className === 'rsp-btn')
   assert.ok(railButton)
-  // 收起成轨道时只显示图标，不显示文字。
+  // 收起成轨道时同样只显示图标。
   assert.equal(railButton.props['data-rail'], '')
+  assert.equal(railButton.props['title'], 'T:action.aria')
   assert.equal(JSON.stringify(railButton.children).includes('T:action.label'), false)
 })
 

@@ -1,8 +1,14 @@
 /**
  * dsh-restart-plugin — Client half.
  *
- * 在侧边栏底部（设置齿轮上方）渲染一个「重启」按钮；点击后弹出确认框，
+ * 在侧边栏底部渲染一个「重启」按钮；点击后弹出确认框，
  * 确认后调用 Host 的 `/dsh-restart-plugin/api/restart`。
+ *
+ * 布局要点（2026-10-19 改）：侧边栏底部 `sidebar.footer.action` 是横排 flex 容器，
+ * 但同排的「会话与工作区」（dsh-session-manager）按钮声明了 `flex: 1 1 100%`，
+ * 独占一整行，并给容器注入了 `flex-wrap: wrap`。所以「重启」若仍在文档流里且
+ * 占满宽度，必然被挤成单独一行。现在改成 28px 纯图标按钮、绝对定位到底部
+ * 最后一行的右端，并给容器右侧留 40px 空白，避免压住左边的文字。
  *
  * 不做构建：DSH 直接以 cordis client bundle 的形式加载本文件
  * （见 package.json 的 dsh.client 声明与 ./client 导出）。
@@ -106,11 +112,24 @@ window.__ModuleLoader__.load({
         const style = document.createElement('style')
         style.id = STYLE_ID
         style.textContent = `
-[data-dsh-restart-plugin] .rsp-btn{display:flex;align-items:center;gap:8px;box-sizing:border-box;border:0;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:14px;line-height:22px;height:34px;border-radius:12px;padding:6px 10px;width:calc(100% + 8px);margin:4px -4px;overflow:hidden;text-align:left}
+[data-dsh-restart-plugin]{flex:none;display:flex;align-items:center;margin:0;padding:0}
+[data-dsh-restart-plugin] .rsp-btn{display:flex;align-items:center;justify-content:flex-start;gap:4px;box-sizing:border-box;border:0;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:13px;line-height:18px;height:28px;padding:0 6px;margin:0;border-radius:8px;overflow:hidden;white-space:nowrap}
 [data-dsh-restart-plugin] .rsp-btn:hover,[data-dsh-restart-plugin] .rsp-btn:focus-visible{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}
 [data-dsh-restart-plugin] .rsp-btn:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}
-[data-dsh-restart-plugin] .rsp-btn[data-rail]{width:36px;height:36px;margin:0 auto;padding:0;justify-content:center}
-[data-dsh-restart-plugin] .rsp-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+[data-dsh-restart-plugin] .rsp-btn[data-rail]{width:36px;height:36px;padding:0;justify-content:center;gap:0;border-radius:12px;margin:0 auto}
+[data-dsh-restart-plugin] .rsp-label{flex:none}
+/* 目标位置：侧边栏最底层那一行（头像 wx_ 那行）的最右端。
+   该行的容器是 ui-settings-general 的 triggerRow，它是 footArea 的最后一个子元素。
+   sidebar.footer.action 只能往 footerActions 里加东西，而 footerActions 在
+   triggerRow 之上、且被「会话与工作区」的 flex:1 1 100% 独占成一行，
+   所以这里把整块 footArea 变成定位上下文，再把重启按钮绝对定位到它的右下角。
+   按钮保留「图标 + 重启」两个字，作为显著标识。 */
+div[class*="footArea"]{position:relative}
+div[class*="footerActions"]{position:static}
+[data-dsh-restart-plugin]{position:absolute;right:0;bottom:6px;z-index:1}
+/* 给最底层那一行右侧留出按钮宽度，让头像/连接状态/更新提示不会压到「重启」下面
+   （重启按钮约 62px 宽：图标 16 + 间距 4 + 两字 26 + 左右内边距 12，取 66px 留余量）。 */
+[class*="triggerRow"]{box-sizing:border-box;padding-right:66px}
 [data-dsh-restart-plugin] .rsp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center;z-index:1200}
 [data-dsh-restart-plugin] .rsp-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 32px));background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#111);border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,.12));border-radius:14px;padding:20px;box-shadow:0 18px 48px rgba(0,0,0,.24);font-size:14px;line-height:22px}
 [data-dsh-restart-plugin] .rsp-dialogTitle{margin:0 0 10px;font-size:16px;line-height:24px;font-weight:600}
@@ -252,10 +271,11 @@ window.__ModuleLoader__.load({
           className: 'rsp-btn',
           ...(wide ? {} : { 'data-rail': '' }),
           'aria-label': aria,
-          title: wide ? undefined : aria,
+          title: aria,
           onClick: () => { void openDialog() },
         },
           h(RestartIcon, { size: wide ? 16 : 18 }),
+          // 展开态保留「重启」两字作为显著标识；收起成轨道时只有图标。
           wide ? h('span', { className: 'rsp-label' }, label) : null,
         ),
         open

@@ -71,3 +71,49 @@
 
 **决定**：写 `"engines": { "dsh": "^0.2.1-rc.2" }`。基准版本 = 本机
 `runtime.json` 的 `desktopVersion`（0.2.1-rc.2，已实测）。
+
+## D7 —— 「重启」按钮位置：侧边栏最底层右侧，必须保留「重启」二字（2026-10-19 晚）
+
+**背景**：用户要求「重启按钮不必占据一行的位置，放到最下方的右边挤一挤」。
+最初实现是占满整行宽的按钮（`width: calc(100% + 8px)`），因此独占一行。
+
+**调研（读源码 `deepseek-harness 0.2.1-rc.2`，与桌面版版本一致）**：
+侧边栏底部是三层结构（`packages/client/ui-sidebar/src/client/SidebarRoot.module.css`）：
+
+```
+footArea (flex-direction: column)
+├─ footerActions  ← list 槽位 sidebar.footer.action（插件面板 / 重启 / 会话与工作区）
+└─ settingsArea   ← single 槽位 sidebar.settings → 头像那一行（triggerRow）
+```
+
+关键约束（读源码 + 实测）：
+- `.footerActions` 只是普通 `display:flex`，**自身没有 flex-wrap**；
+  是 `dsh-session-manager` 的宽按钮声明了 `flex: 1 1 100%` 并给容器注入了
+  `flex-wrap: wrap`，才让同排每项各占一行。
+- `settings.launcher` 是 **single 槽位、且已被头像按钮占用**，注册进去会
+  **替换掉头像**，不能作为落点。
+- `footerActions` 在 DOM 上位于 `triggerRow` **之上**，所以往 `footerActions`
+  里加的内容不可能自然排到头像那一行。
+
+**决定**：注册位置保持 `sidebar.footer.action` 不变（不动槽位），用 CSS 把按钮
+绝对定位到 `footArea` 的右下角 —— 那正好是头像行（`triggerRow`）的右端：
+
+```css
+div[class*="footArea"]{position:relative}
+[data-dsh-restart-plugin]{position:absolute;right:0;bottom:6px;z-index:1}
+[class*="triggerRow"]{padding-right:66px}   /* 给按钮让位，不压住头像/连接状态 */
+```
+
+- 展开态：`↻ 重启`（图标 16px + 文字 13px，高 28px）。
+- 收起态（56px 轨道）：只留 36×36 图标。
+- 颜色仍只用 `--dsw-*` 主题 token。
+
+**用户明确要求（一次返工）**：曾为「挤一挤」去掉文字只留图标，被要求加回 ——
+**「重启」这两个字必须保留，作为显著标识**。已改回并在单元测试里锁定
+（`wide` 形态必须包含 `action.label`）。
+
+**否掉的方案**：
+- 注册进 `settings.launcher` —— 会替换掉头像（single 槽位）。
+- `:has()` + 绝对定位到 footerActions 右端 —— 首版把按钮挤出了可视区域。
+- flex `order:99` + `nowrap` 让两者共行 —— 能与「会话与工作区」同行，但用户要的是
+  **更下面**的头像那一行，位置不对。
