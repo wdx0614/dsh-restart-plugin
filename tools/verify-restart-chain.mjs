@@ -71,9 +71,16 @@ try {
   // node.exe 的副本，名字就是应用本体 —— 让 process.execPath 判定成立。
   cpSync(process.execPath, exePath)
 
+  // 替身应用：真实启动参数里现在会带 --updated（外壳自己认的重启标记），
+  // 所以这里必须忽略未知参数，只认我们自己传的脚本路径。
   writeFileSync(appScript, [
     "const fs = require('node:fs')",
-    `fs.writeFileSync(${JSON.stringify(relaunchedPath)}, 'relaunched=' + Date.now() + '\\n', 'utf8')`,
+    "const path = require('node:path')",
+    `const marker = ${JSON.stringify(relaunchedPath)}`,
+    // 取第一个以 .js 结尾的参数作为脚本路径；--updated 之类忽略。
+    "const scriptArg = process.argv.slice(1).find(a => a.endsWith('.js'))",
+    "if (scriptArg) { try { require(path.resolve(scriptArg)) } catch (_) {} }",
+    "fs.writeFileSync(marker, 'relaunched=' + Date.now() + ' args=' + JSON.stringify(process.argv.slice(1)) + '\\n', 'utf8')",
   ].join('\n'), 'utf8')
 
   // Host 替身：加载插件真实代码，起 HTTP 服务。

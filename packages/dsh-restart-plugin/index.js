@@ -27,6 +27,17 @@ export const API_PREFIX = '/dsh-restart-plugin/api'
 export const name = 'dsh-restart-plugin'
 
 /**
+ * 看门狗实现版本号。
+ *
+ * 为什么需要它：插件代码常驻在 Host 进程里，改完源码后**已在运行的 Host
+ * 仍使用内存里的旧模块**，只有新进程才会加载新代码。
+ * 实测踩过：改完代码再做重启测试，实际执行的还是上一版看门狗，
+ * 于是「明明修了却还是老现象」，白排查一轮。
+ * 把这个版本号暴露在 /status 里，就能一眼确认当前进程用的是哪一版。
+ */
+export const WATCHDOG_VERSION = 2
+
+/**
  * 硬依赖：本插件的工作方式是注册一条 HTTP 路由，没有 webServer 就没有意义。
  * cordis 会等这个服务就绪再激活本插件。
  *
@@ -141,6 +152,9 @@ const { spawn } = require('node:child_process')
 const { appendFileSync } = require('node:fs')
 
 const pid = Number(process.env.DSH_RESTART_PID)
+// 外壳（Electron 主进程）pid。托盘图标、单实例锁都属于它。
+// 只等 Host 退出是不够的：实测会出现「两个托盘图标，旧的那个一会儿才消失」。
+const shellPid = Number(process.env.DSH_RESTART_SHELL_PID)
 const target = process.env.DSH_RESTART_TARGET
 const cwd = process.env.DSH_RESTART_CWD || undefined
 const logPath = process.env.DSH_RESTART_LOG || ''
@@ -192,10 +206,27 @@ function launch() {
   delete env.NODE_OPTIONS
   try {
     const args = readArgs()
-    const child = spawn(target, args, { cwd, detached: true, stdio: 'ignore', windowsHide: true, shell: false, env })
+    // 关键：这里**不能**用 windowsHide。
+    // windowsHide 会通过 STARTUPINFO.wShowWindow = SW_HIDE 启动进程，被 Electron 继承，
+    // 结果是「应用起来了，但主窗口不显示，只剩一个托盘图标」——
+    // 用户会以为重启失败了。这正是实测中观察到的现象。
+    //
+    // 传 --updated：这是外壳自己认的重启标记（main.ts 里 raiseAfterUpdate）。
+    // 带它的启动会在进入工作区后 moveTop() + focus()，让窗口主动置顶，
+    // 用户不用去点托盘图标。更新安装器也是用这个标记拉起新版本的。
+    // 放在参数末尾：外壳只做 argv.includes() 判断，位置无关；
+    // 而放前面会让某些按「首参即选项」解析的运行时拒绝启动。
+    const child = spawn(target, [...args, '--updated'], {
+      cwd,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+      shell: false,
+      env,
+    })
     child.on('error', (error) => log('launch failed: ' + String(error && error.message)))
     child.unref()
-    log('launched target ' + target + (args.length === 0 ? '' : ' args ' + JSON.stringify(args)))
+    log('launched target ' + target + ' (with --updated)')
   } catch (error) {
     log('launch threw: ' + String(error && error.message))
     process.exitCode = 1
@@ -206,29 +237,33 @@ const deadline = Date.now() + timeout
 let announcedGiveUp = false
 
 function poll() {
-  if (!alive(pid)) {
-    // 再等一会儿，让单实例锁、profile 写锁、端口都释放干净。
-    setTimeout(() => { launch(); process.exit(0) }, 500)
+  // 两个进程都走了才算真的退出：Host 落盘退出，外壳连同托盘图标一起消失。
+  const hostAlive = alive(pid)
+  const shellAlive = alive(shellPid)
+  if (!hostAlive && !shellAlive) {
+    // 再留一点余量给系统回收托盘图标与单实例锁。
+    setTimeout(() => { launch(); process.exit(0) }, 1200)
     return
   }
   if (Date.now() > deadline) {
     if (!announcedGiveUp) {
       announcedGiveUp = true
-      log('deadline reached; terminating lingering host pid ' + pid)
-      forceKill(pid)
+      log('deadline reached; host alive=' + String(hostAlive) + ' shell alive=' + String(shellAlive))
+      if (hostAlive) forceKill(pid)
+      if (shellAlive) forceKill(shellPid)
     }
     // 强制结束后再给它一点时间退出，然后无条件启动。
     setTimeout(() => {
-      if (alive(pid)) log('host still alive after force kill')
+      log('post-force: host alive=' + String(alive(pid)) + ' shell alive=' + String(alive(shellPid)))
       launch()
       process.exit(0)
-    }, 1500)
+    }, 2000)
     return
   }
   setTimeout(poll, interval)
 }
 
-log('watchdog started; waiting for pid ' + pid + ' (timeout ' + timeout + 'ms)')
+log('watchdog started; waiting for host ' + pid + ' and shell ' + shellPid + ' (timeout ' + timeout + 'ms)')
 poll()
 `
 
@@ -252,9 +287,12 @@ function childEnvironment(env) {
  */
 export function startWatchdog(target, options = {}) {
   const logPath = options.logPath ?? join(tmpdir(), `dsh-restart-watchdog-${String(Date.now())}.log`)
+  // 外壳 pid：默认取父进程（桌面版下就是 Electron 主进程）。
+  const shellPid = options.shellPid ?? (typeof process.ppid === 'number' ? process.ppid : 0)
   const env = {
     ...process.env,
     DSH_RESTART_PID: String(process.pid),
+    DSH_RESTART_SHELL_PID: String(shellPid),
     DSH_RESTART_TARGET: target,
     DSH_RESTART_CWD: options.cwd ?? process.cwd(),
     DSH_RESTART_LOG: logPath,
@@ -265,7 +303,8 @@ export function startWatchdog(target, options = {}) {
       : {}),
   }
   try {
-    // 用当前可执行文件（Electron 的 Node 模式）运行脚本，保证这个解释器一定存在。
+    // 看门狗本身是纯 Node 脚本，不需要窗口：这里 windowsHide 是对的，
+    // 它不影响被它拉起的 GUI 应用（那一步显式用 windowsHide: false）。
     const child = spawn(process.execPath, ['-e', WATCHDOG_SOURCE], {
       env,
       detached: true,
@@ -294,19 +333,25 @@ export function startWatchdog(target, options = {}) {
 export function requestRestart(ctx, options = {}) {
   const support = detectRestartSupport()
   if (!support.supported) return { ok: false, reason: support.reason }
-  const watchdog = startWatchdog(support.launchTarget, options)
-  if (!watchdog.ok) return { ok: false, reason: 'watchdog-failed', message: watchdog.message, logPath: watchdog.logPath }
   const shellPid = typeof process.ppid === 'number' ? process.ppid : 0
+  const watchdog = startWatchdog(support.launchTarget, { ...options, shellPid })
+  if (!watchdog.ok) return { ok: false, reason: 'watchdog-failed', message: watchdog.message, logPath: watchdog.logPath }
   const delayMs = options.delayMs ?? 250
   const timer = setTimeout(() => {
+    // 只结束外壳主进程，不整棵杀：
+    // 外壳一退，Host 的 IPC 通道断开，desktop-host 会走它自带的优雅停止流程
+    // （flush 会话、关闭存储、结束子进程），这正是「正常退出」应有的顺序。
     try {
       if (shellPid > 0) process.kill(shellPid)
     } catch (error) {
       ctx.logger?.('dsh-restart-plugin')?.warn?.('shell termination failed: %s', messageOf(error))
     }
-    // 兜底：若 Host 没有因为 disconnect 自己退出，在宽限期后强制退出，
-    // 保证看门狗等得到「本进程已消失」，从而能拉起新实例。
-    const backstop = setTimeout(() => { process.exit(0) }, options.exitAfterMs ?? 8_000)
+    // 兜底：如果 Host 在宽限期内没有因为 disconnect 自行退出，就强制退出，
+    // 保证看门狗一定等得到「本进程已消失」，从而把应用拉起来。
+    const backstop = setTimeout(() => {
+      try { ctx.logger?.('dsh-restart-plugin')?.warn?.('graceful shutdown exceeded; exiting') } catch { /* 忽略 */ }
+      process.exit(0)
+    }, options.exitAfterMs ?? 10_000)
     backstop.unref?.()
   }, delayMs)
   timer.unref?.()
@@ -357,6 +402,8 @@ async function handleRequest(ctx, req, res) {
       activeTasks: work.activeTasks,
       scheduledTasks: work.scheduledTasks,
       environment: describeEnvironment(),
+      // 让调用方确认「当前进程加载的是哪一版看门狗」，避免拿旧模块测新代码。
+      watchdogVersion: WATCHDOG_VERSION,
     })
   }
 

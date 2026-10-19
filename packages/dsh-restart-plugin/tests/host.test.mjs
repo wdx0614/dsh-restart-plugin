@@ -231,6 +231,33 @@ test('watchdog 脚本是自包含的，不 import 本包任何东西', async () 
   assert.equal(WATCHDOG_SOURCE.includes('delete env.ELECTRON_RUN_AS_NODE'), true)
 })
 
+test('看门狗必须同时等外壳退出，否则会残留第二个托盘图标', async () => {
+  const { WATCHDOG_SOURCE } = await import('../index.js')
+  // 真机实测：只等 Host 退出就启动新实例，任务栏会短暂出现两个托盘图标。
+  assert.equal(WATCHDOG_SOURCE.includes('DSH_RESTART_SHELL_PID'), true)
+  assert.equal(WATCHDOG_SOURCE.includes('shellAlive'), true)
+})
+
+test('看门狗拉起应用时必须用 windowsHide:false，否则窗口不显示只剩托盘', async () => {
+  const { WATCHDOG_SOURCE } = await import('../index.js')
+  // 真机实测：windowsHide:true 会让 Electron 以 SW_HIDE 启动，主窗口不出现。
+  // 因此启动 GUI 应用那一处必须是 false（看门狗自身进程仍可为 true）。
+  const launchSection = WATCHDOG_SOURCE.slice(
+    WATCHDOG_SOURCE.indexOf('function launch()'),
+    WATCHDOG_SOURCE.indexOf('const deadline'),
+  )
+  assert.ok(launchSection.length > 0, '应能定位到 launch 函数')
+  assert.equal(launchSection.includes('windowsHide: false'), true)
+  assert.equal(launchSection.includes('windowsHide: true'), false)
+})
+
+test('看门狗必须带 --updated 启动，让重启后的窗口主动置顶', async () => {
+  const { WATCHDOG_SOURCE } = await import('../index.js')
+  // 外壳自己认这个标记（apps/desktop/src/main.ts 的 raiseAfterUpdate），
+  // 带它启动后窗口会 moveTop + focus，用户不必再去点托盘。
+  assert.equal(WATCHDOG_SOURCE.includes("'--updated'"), true)
+})
+
 test('requestRestart 在没有桌面环境时拒绝，不拉起任何进程', () => {
   const ctx = { logger: () => ({ warn() {} }) }
   const result = requestRestart(ctx, { timeoutMs: 1000 })
