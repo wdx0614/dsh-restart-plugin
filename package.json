@@ -1,0 +1,86 @@
+{
+  "name": "dsh-restart-plugin",
+  "version": "1.1.0",
+  "description": "给 DSH 桌面版加一个电源按钮：侧边栏一键「重启 DSH」/「关闭 DSH」。重启会自动把应用拉回来，改完插件或配置不必再去托盘翻菜单。",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    },
+    "./client": {
+      "default": "./client.js"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "power",
+    "power-menu",
+    "restart",
+    "shutdown",
+    "desktop"
+  ],
+  "author": "wdx0614",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wdx0614/dsh-restart-plugin.git"
+  },
+  "homepage": "https://github.com/wdx0614/dsh-restart-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/wdx0614/dsh-restart-plugin/issues"
+  },
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check client.js",
+    "test": "node --test tests/client.test.mjs tests/host.test.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-client-ui-slots": "*",
+    "@deepseek-ai/dsh-client-locale": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    }
+  }
+}

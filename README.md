@@ -21,19 +21,58 @@ Windows / macOS 桌面版 · 纯本地 · 无遥测 · MIT
 
 ## 安装
 
-在 DSH 里安装（二选一）：
+> **重要**：装完必须再运行一次 `enable.ps1`，把插件补进 profile 的 `dsh.profile.bundles`，
+> 然后重启 DSH。少了这一步，按钮不会出现——这是 DSH 插件管理器只写 `dependencies`、
+> 不写 `bundles` 的已知行为，不是插件本身的问题。
 
-```
-设置 → 插件 → 添加插件 → 输入仓库地址
+### 方式 A：通过 DSH 插件管理器（图形界面，推荐新手）
+
+1. 打开 DSH 桌面版 → **设置** → **插件**（或「插件市场」）。
+2. 点 **添加插件**。
+3. 在输入框里粘贴这一行（**注意开头必须带 `github:`**）：
+
+   ```
+   github:wdx0614/dsh-restart-plugin
+   ```
+
+4. 点 **安装**，等它跑完。这一步需要本机能连上 GitHub
+   （在命令行里 `git ls-remote https://github.com/wdx0614/dsh-restart-plugin` 能成功即可）。
+5. 下载本仓库（或 `git clone`），在仓库目录里运行一次：
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\enable.ps1
+   ```
+
+6. **重启 DSH**。之后左侧边栏最底部右侧会出现电源按钮。
+
+### 方式 B：命令行安装
+
+```powershell
+dsh plugin --profile desktop add github:wdx0614/dsh-restart-plugin
+powershell -ExecutionPolicy Bypass -File .\enable.ps1
 ```
 
-或用插件管理器安装本地路径（把 `<本仓库路径>` 换成本机实际路径）：
+`dsh` 是 DSH 自带的命令行工具；如果系统 PATH 里没有，用安装目录下的
+`<安装目录>\resources\runtime\cli\bin\dsh.cmd`。
 
-```
-dsh plugin --profile desktop add <本仓库路径>/packages/dsh-restart-plugin
+### 方式 C：从本机克隆的源码安装（改代码调试时用）
+
+```powershell
+git clone https://github.com/wdx0614/dsh-restart-plugin.git
+dsh plugin --profile desktop add file:<克隆下来的目录>
+powershell -ExecutionPolicy Bypass -File .\enable.ps1
 ```
 
-装完**重启一次 DSH**，按钮才会出现（Host 半需要重启才加载）。
+### 装完按钮不出来？
+
+按顺序查这三件事：
+
+| 现象 | 原因 | 怎么办 |
+|---|---|---|
+| 提示「这个包没有声明组合包」 | 仓库根目录缺 `package.json`，或 `package.json` 里没有 `dsh.bundle` 声明 | 升级到 1.1.0+（包已放到仓库根目录）；旧结构装不了 |
+| 提示 `not a package name the registry accepts` | 输入框里只写了 `wdx0614/dsh-restart-plugin`，少了 `github:` 前缀 | 改成 `github:wdx0614/dsh-restart-plugin` |
+| 插件「已启用」但按钮不出现 / 点了 404 | 只进了 `dependencies`，没进 `dsh.profile.bundles` | 运行 `enable.ps1`，然后重启 DSH |
+| 运行 `enable.ps1` 后仍不出现 | Host 半要重启进程才加载 | 完全退出 DSH（托盘右键退出），再重新打开 |
 
 详细步骤见 [docs/安装与使用.md](docs/安装与使用.md)。
 
@@ -67,17 +106,19 @@ Host 是 Electron 的子进程，纯插件**没法**让 Electron 主进程调用
 
 ## 目录结构
 
+插件包就在**仓库根目录**（这样 `github:` 安装才能识别），不是放在子目录里：
+
 ```
-packages/dsh-restart-plugin/   插件源码（可安装的 cordis bundle）
-  package.json                 包清单（dsh.bundle.patch + dsh.client）
-  cordis.patch.yml             Loader 补丁，插入 Host 行
-  index.js                     Host 半：重启/关闭控制器 + HTTP 路由 + 看门狗
-  client.js                    Client 半：电源按钮 + 二级菜单 + 确认框
-  locale/{en,zh}.json          插件列表里的显示元数据
-  icon.svg                     插件图标
-  tests/                       单元测试
-tools/                         验证与诊断脚本
-docs/                          使用说明与原理文档
+package.json          包清单（dsh.bundle.patch + dsh.client），必须在根目录
+cordis.patch.yml      Loader 补丁，插入 Host 行
+index.js              Host 半：重启/关闭控制器 + HTTP 路由 + 看门狗
+client.js             Client 半：电源按钮 + 二级菜单 + 确认框
+locale/{en,zh}.json   插件列表里的显示元数据
+icon.svg              插件图标
+enable.ps1            装完后补 dsh.profile.bundles 的脚本（必跑一次）
+tests/                单元测试
+tools/                验证与诊断脚本
+docs/                 使用说明与原理文档
 ```
 
 ## 文档

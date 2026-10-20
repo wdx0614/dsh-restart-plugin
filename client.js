@@ -29,7 +29,7 @@ window.__ModuleLoader__.load({
 
     /** 中文文案。 */
     const zh = {
-      'action.label': '重启',
+      'action.label': '开/关',
       'action.aria': '电源：重启或关闭 DeepSeek Harness',
       'menu.restart': '重启 DSH',
       'menu.shutdown': '关闭 DSH',
@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({
 
     /** 英文文案。 */
     const en = {
-      'action.label': 'Restart',
+      'action.label': 'On/Off',
       'action.aria': 'Power: restart or close DeepSeek Harness',
       'menu.restart': 'Restart DSH',
       'menu.shutdown': 'Close DSH',
@@ -195,8 +195,8 @@ window.__ModuleLoader__.load({
         style.id = STYLE_ID
         style.textContent = `
 [data-dsh-restart-plugin]{flex:none;display:flex;align-items:center;margin:0;padding:0}
-[data-dsh-restart-plugin] .rsp-btn{display:flex;align-items:center;justify-content:flex-start;gap:4px;box-sizing:border-box;border:0;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:13px;line-height:18px;height:28px;padding:0 6px;margin:0;border-radius:8px;overflow:hidden;white-space:nowrap}
-[data-dsh-restart-plugin] .rsp-btn:hover,[data-dsh-restart-plugin] .rsp-btn:focus-visible{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}
+[data-dsh-restart-plugin] .rsp-btn{display:flex;align-items:center;justify-content:flex-start;gap:4px;box-sizing:border-box;border:0;background:transparent;color:var(--dsw-alias-label-primary,#fff);cursor:pointer;font:inherit;font-size:13px;line-height:18px;height:28px;padding:0 6px;margin:0;border-radius:8px;overflow:hidden;white-space:nowrap}
+[data-dsh-restart-plugin] .rsp-btn:hover,[data-dsh-restart-plugin] .rsp-btn:focus-visible{color:var(--dsw-alias-label-primary,#fff);background:var(--dsw-alias-interactive-bg-hover)}
 [data-dsh-restart-plugin] .rsp-btn:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}
 [data-dsh-restart-plugin] .rsp-btn[data-rail]{width:36px;height:36px;padding:0;justify-content:center;gap:0;border-radius:12px;margin:0 auto}
 [data-dsh-restart-plugin] .rsp-label{flex:none}
@@ -220,9 +220,9 @@ window.__ModuleLoader__.load({
 div[class*="footArea"]{position:relative}
 div[class*="footerActions"]{position:static}
 [data-dsh-restart-plugin]{position:absolute;right:0;bottom:6px;z-index:1}
-/* 给最底层那一行右侧留出按钮宽度，让头像/连接状态/更新提示不会压到「重启」下面
-   （重启按钮约 62px 宽：图标 16 + 间距 4 + 两字 26 + 左右内边距 12，取 66px 留余量）。 */
-[class*="triggerRow"]{box-sizing:border-box;padding-right:66px}
+/* 给最底层那一行右侧留出按钮宽度，让头像/连接状态/更新提示不会压到「开/关」下面
+   （按钮约 74px：图标 16 + 间距 4 + 三字符「开/关」约 42 + 左右内边距 12，取 78px 留余量）。 */
+[class*="triggerRow"]{box-sizing:border-box;padding-right:78px}
 [data-dsh-restart-plugin] .rsp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center;z-index:1200}
 [data-dsh-restart-plugin] .rsp-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 32px));background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#111);border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,.12));border-radius:14px;padding:20px;box-shadow:0 18px 48px rgba(0,0,0,.24);font-size:14px;line-height:22px}
 [data-dsh-restart-plugin] .rsp-dialogTitle{margin:0 0 10px;font-size:16px;line-height:24px;font-weight:600}
