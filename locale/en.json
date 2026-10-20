@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Restart",
-    "description": "Adds a Restart entry to the sidebar foot: closes DeepSeek Harness and opens it again automatically, so plugin changes can take effect without quitting and relaunching by hand."
+    "title": "Power Menu",
+    "description": "Adds a power button to the sidebar foot with two actions: Restart DSH (closes it, then reopens it automatically a few seconds later) or Shut Down DSH (quits the app entirely and does not reopen it, so you start it by hand next time)."
   }
 }

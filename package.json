@@ -1,6 +1,6 @@
 {
   "name": "dsh-restart-plugin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "给 DSH 桌面版加一个电源按钮：侧边栏一键「重启 DSH」/「关闭 DSH」。重启会自动把应用拉回来，改完插件或配置不必再去托盘翻菜单。",
   "type": "module",
   "main": "index.js",
