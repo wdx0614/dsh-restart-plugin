@@ -30,7 +30,9 @@ window.__ModuleLoader__.load({
     /** 中文文案。 */
     const zh = {
       'action.label': '重启',
-      'action.aria': '重启 DeepSeek Harness',
+      'action.aria': '电源：重启或关闭 DeepSeek Harness',
+      'menu.restart': '重启 DSH',
+      'menu.shutdown': '关闭 DSH',
       'dialog.title': '重启 DeepSeek Harness？',
       'dialog.body': '应用会关闭，并在几秒后自动重新打开。插件、配置的改动会在重启后生效。',
       'dialog.activeTasks': '正在运行的任务会被中断。',
@@ -46,12 +48,23 @@ window.__ModuleLoader__.load({
       'dialog.starting': '正在重启…',
       'dialog.failed': '重启没有启动成功。请手动关闭并重新打开应用。如果应用已经关闭，请从开始菜单重新打开。',
       'toast.restarting': '正在重启，请稍候…',
+      'shutdown.title': '关闭 DeepSeek Harness？',
+      'shutdown.body': '应用会被完全关闭，不会自动重新打开。下次使用需要从开始菜单或桌面图标手动启动。',
+      'shutdown.activeTasks': '正在运行的任务会被中断。',
+      'shutdown.scheduledTasks': '排期的定时任务在关闭期间不会运行。',
+      'shutdown.activeAndScheduled': '正在运行的任务会被中断，排期的定时任务在关闭期间不会运行。',
+      'shutdown.confirm': '关闭',
+      'shutdown.force': '仍然关闭',
+      'shutdown.starting': '正在关闭…',
+      'shutdown.failed': '关闭没有启动成功。请从托盘菜单退出，或手动关闭窗口。',
     }
 
     /** 英文文案。 */
     const en = {
       'action.label': 'Restart',
-      'action.aria': 'Restart DeepSeek Harness',
+      'action.aria': 'Power: restart or close DeepSeek Harness',
+      'menu.restart': 'Restart DSH',
+      'menu.shutdown': 'Close DSH',
       'dialog.title': 'Restart DeepSeek Harness?',
       'dialog.body': 'The app will close and reopen automatically in a few seconds. Plugin and configuration changes take effect after the restart.',
       'dialog.activeTasks': 'Running tasks will be interrupted.',
@@ -67,6 +80,15 @@ window.__ModuleLoader__.load({
       'dialog.starting': 'Restarting…',
       'dialog.failed': 'The restart did not start. Close and reopen the app manually. If it already closed, open it from the Start menu.',
       'toast.restarting': 'Restarting, please wait…',
+      'shutdown.title': 'Close DeepSeek Harness?',
+      'shutdown.body': 'The app will close completely and will not reopen by itself. Start it again from the Start menu or desktop shortcut.',
+      'shutdown.activeTasks': 'Running tasks will be interrupted.',
+      'shutdown.scheduledTasks': 'Scheduled tasks will not run while the app is closed.',
+      'shutdown.activeAndScheduled': 'Running tasks will be interrupted, and scheduled tasks will not run while the app is closed.',
+      'shutdown.confirm': 'Close',
+      'shutdown.force': 'Close anyway',
+      'shutdown.starting': 'Closing…',
+      'shutdown.failed': 'The app did not close. Quit it from the tray menu, or close the window manually.',
     }
 
     /** 重启图标：环形箭头 + 断开的一端，表示「重新开始」。 */
@@ -78,10 +100,58 @@ window.__ModuleLoader__.load({
         fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
         strokeLinecap: 'round', strokeLinejoin: 'round',
       },
-        // 主弧：约 300°，留出右上缺口。
+      // 主弧：约 300°，留出右上缺口。
         h('path', { d: 'M20.2 8.5A8.5 8.5 0 1 0 20.5 13' }),
         // 缺口处的箭头尖。
         h('path', { d: 'M21 3.5v5.2h-5.2' }),
+      )
+    }
+
+    /**
+     * 电源开关图标：顶部一条竖线 + 下方缺口圆弧，是通用的「电源」符号。
+     *
+     * 为什么自绘：DSH 自带图标库（ui-primitives/icons）里没有电源符号
+     * （实测逐个查过 Power / Shutdown / Exit / Switch / Toggle，全部不存在），
+     * 所以只能内联画。参数沿用自带图标的约定（24 网格、1.8 描边、currentColor），
+     * 和旁边其它图标放在一起不会显得突兀。
+     */
+    function PowerIcon({ size }) {
+      const s = typeof size === 'number' ? size : 18
+      return h('svg', {
+        viewBox: '0 0 24 24', width: s, height: s, 'aria-hidden': true,
+        style: { display: 'block', flex: 'none' },
+        fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
+        strokeLinecap: 'round', strokeLinejoin: 'round',
+      },
+        // 竖线：从圆外穿进圆心上方。
+        h('path', { d: 'M12 3.2v8.4' }),
+        // 缺口圆环：左右各留一段，形成上方开口。
+        h('path', { d: 'M6.15 6.55a8 8 0 1 0 11.7 0' }),
+      )
+    }
+
+    /**
+     * 关闭图标：直接复刻 DSH 自带的「退出登录」图标
+     * （`packages/client/ui-settings-account/src/client/LogoutIcon.tsx`，
+     * Figma IcDsLogOutOutline16）。门框 + 向右箭头 = 「离开」。
+     *
+     * 为什么用这个：用户明确要求复用头像菜单里「退出登录」那个图标，省一份资源，
+     * 也让「关闭应用」和系统里已有的「退出」语义保持一致。
+     * 图形按原样缩放到 24 网格，只保留轮廓路径。
+     */
+    function SignOutIcon({ size }) {
+      const s = typeof size === 'number' ? size : 18
+      return h('svg', {
+        viewBox: '0 0 16 16', width: s, height: s, 'aria-hidden': true,
+        style: { display: 'block', flex: 'none' },
+        fill: 'none', stroke: 'currentColor', strokeWidth: 1.2,
+        strokeLinecap: 'round', strokeLinejoin: 'round',
+      },
+        // 门框：左侧竖边 + 上下边框。
+        h('path', { d: 'M5.6 2.1H3.2a1.3 1.3 0 0 0-1.3 1.3v9.2a1.3 1.3 0 0 0 1.3 1.3h2.4' }),
+        // 出口箭头：横线 + 上下两个箭头尖。
+        h('path', { d: 'M8.2 8h5.6' }),
+        h('path', { d: 'M11.2 5.4 13.9 8l-2.7 2.6' }),
       )
     }
 
@@ -95,6 +165,18 @@ window.__ModuleLoader__.load({
     /** 发起重启。force 表示用户已经明确接受「打断正在运行的任务」。 */
     async function requestRestart(force) {
       const response = await fetch(`${API}/restart`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(force === true ? { force: true } : {}),
+      })
+      let payload = null
+      try { payload = await response.json() } catch { payload = null }
+      return { status: response.status, payload }
+    }
+
+    /** 关闭整个应用（不重新打开）。force 含义同重启。 */
+    async function requestShutdown(force) {
+      const response = await fetch(`${API}/shutdown`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify(force === true ? { force: true } : {}),
@@ -118,6 +200,17 @@ window.__ModuleLoader__.load({
 [data-dsh-restart-plugin] .rsp-btn:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}
 [data-dsh-restart-plugin] .rsp-btn[data-rail]{width:36px;height:36px;padding:0;justify-content:center;gap:0;border-radius:12px;margin:0 auto}
 [data-dsh-restart-plugin] .rsp-label{flex:none}
+[data-dsh-restart-plugin] .rsp-btn[aria-expanded="true"]{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}
+/* 二级菜单：向上弹出、贴按钮右侧对齐，视觉沿用 DSH 自带的浮层语言
+   （圆角、层级填充、悬浮阴影、--dsw-* 主题 token），所以深色/浅色主题都自动跟随。 */
+[data-dsh-restart-plugin] .rsp-menu{position:fixed;z-index:1300;min-width:164px;box-sizing:border-box;padding:6px;border-radius:12px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1,#fff));border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,.12));box-shadow:0 12px 32px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}
+[data-dsh-restart-plugin] .rsp-menuItem{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;height:32px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;white-space:nowrap}
+[data-dsh-restart-plugin] .rsp-menuItem:hover,[data-dsh-restart-plugin] .rsp-menuItem:focus-visible{background:var(--dsw-alias-interactive-bg-hover);outline:none}
+[data-dsh-restart-plugin] .rsp-menuItem:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-alias-state-business-primary)}
+[data-dsh-restart-plugin] .rsp-menuItem[data-danger]{color:var(--dsw-alias-state-error-primary,#d92d20)}
+[data-dsh-restart-plugin] .rsp-menuItem[data-danger]:hover,[data-dsh-restart-plugin] .rsp-menuItem[data-danger]:focus-visible{background:var(--dsw-alias-interactive-bg-hover-danger,var(--dsw-alias-interactive-bg-hover))}
+[data-dsh-restart-plugin] .rsp-menuIcon{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px}
+[data-dsh-restart-plugin] .rsp-menuLabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* 目标位置：侧边栏最底层那一行（头像 wx_ 那行）的最右端。
    该行的容器是 ui-settings-general 的 triggerRow，它是 footArea 的最后一个子元素。
    sidebar.footer.action 只能往 footerActions 里加东西，而 footerActions 在
@@ -148,15 +241,26 @@ div[class*="footerActions"]{position:static}
       }, [])
     }
 
-    /** 确认对话框。 */
-    function RestartDialog({ t, status, busy, error, onCancel, onConfirm }) {
+    /**
+     * 确认对话框。variant 决定文案与语气：
+     * - `restart`：应用会自己回来，常规主色按钮。
+     * - `shutdown`：应用不会自己回来，用危险色提示，避免误点。
+     */
+    function RestartDialog({ t, status, busy, error, variant, onCancel, onConfirm }) {
+      const shuttingDown = variant === 'shutdown'
+      const key = shuttingDown ? 'shutdown' : 'dialog'
       const messages = []
       if (status !== null) {
-        if (status.activeTasks === true && status.scheduledTasks === true) messages.push(t('dialog.activeAndScheduled'))
-        else if (status.activeTasks === true) messages.push(t('dialog.activeTasks'))
-        else if (status.scheduledTasks === true) messages.push(t('dialog.scheduledTasks'))
+        if (status.activeTasks === true && status.scheduledTasks === true) messages.push(t(`${key}.activeAndScheduled`))
+        else if (status.activeTasks === true) messages.push(t(`${key}.activeTasks`))
+        else if (status.scheduledTasks === true) messages.push(t(`${key}.scheduledTasks`))
       }
       const needsForce = status !== null && (status.activeTasks === true || status.scheduledTasks === true)
+      const primaryText = busy === true
+        ? t(shuttingDown ? 'shutdown.starting' : 'dialog.starting')
+        : needsForce
+          ? t(shuttingDown ? 'shutdown.force' : 'dialog.force')
+          : t(shuttingDown ? 'shutdown.confirm' : 'dialog.confirm')
       return h('div', {
         className: 'rsp-backdrop',
         role: 'presentation',
@@ -166,8 +270,8 @@ div[class*="footerActions"]{position:static}
           className: 'rsp-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'rsp-dialog-title',
           onMouseDown: (event) => { event.stopPropagation() },
         },
-          h('h2', { className: 'rsp-dialogTitle', id: 'rsp-dialog-title' }, t('dialog.title')),
-          h('p', { className: 'rsp-dialogBody' }, t('dialog.body')),
+          h('h2', { className: 'rsp-dialogTitle', id: 'rsp-dialog-title' }, t(`${key}.title`)),
+          h('p', { className: 'rsp-dialogBody' }, t(`${key}.body`)),
           messages.map((text, index) => h('p', { className: 'rsp-warn', key: `warn-${String(index)}` }, text)),
           error === null ? null : h('p', { className: 'rsp-error' }, error),
           h('div', { className: 'rsp-actions' },
@@ -175,22 +279,126 @@ div[class*="footerActions"]{position:static}
               type: 'button', className: 'rsp-action', disabled: busy === true, onClick: onCancel,
             }, t('dialog.cancel')),
             h('button', {
-              type: 'button', className: 'rsp-action', 'data-primary': true, disabled: busy === true,
+              type: 'button',
+              className: 'rsp-action',
+              'data-primary': true,
+              ...(shuttingDown ? { 'data-danger': '' } : {}),
+              disabled: busy === true,
               onClick: () => onConfirm(needsForce),
-            }, busy === true ? t('dialog.starting') : needsForce ? t('dialog.force') : t('dialog.confirm')),
+            }, primaryText),
           ),
         ),
       )
     }
 
-    /** 侧边栏底部的重启入口。 */
+    /**
+     * 二级菜单：向上弹出的小卡片，两行「重启 DSH / 关闭 DSH」，每行图标 + 文字。
+     *
+     * 交互与系统菜单一致：Esc 关闭、点菜单外关闭、打开时把焦点放到第一行、
+     * 上下方向键在两行间移动、Enter / 空格执行。
+     */
+    function RestartMenu({ t, anchorRect, onPick, onDismiss }) {
+      const menuRef = useRef(null)
+      const itemRefs = useRef([])
+      const [activeIndex, setActiveIndex] = useState(0)
+
+      const items = [
+        { id: 'restart', label: t('menu.restart'), icon: h(RestartIcon, { size: 16 }) },
+        { id: 'shutdown', label: t('menu.shutdown'), icon: h(SignOutIcon, { size: 16 }), danger: true },
+      ]
+
+      // 定位：贴着按钮上沿往上弹，右边缘与按钮右边缘对齐。
+      useEffect(() => {
+        if (anchorRect === null || menuRef.current === null) return
+        const el = menuRef.current
+        const height = el.offsetHeight
+        const width = el.offsetWidth
+        const gap = 6
+        const viewportW = window.innerWidth
+        const viewportH = window.innerHeight
+        // 默认放在按钮上方；上方空间不够就翻到下方。
+        let top = anchorRect.top - height - gap
+        if (top < 8) top = Math.min(anchorRect.bottom + gap, viewportH - height - 8)
+        let left = anchorRect.right - width
+        if (left < 8) left = 8
+        if (left + width > viewportW - 8) left = viewportW - width - 8
+        el.style.top = `${String(Math.round(top))}px`
+        el.style.left = `${String(Math.round(left))}px`
+      }, [anchorRect])
+
+      // 打开即聚焦第一行，键盘操作才有起点。
+      useEffect(() => {
+        itemRefs.current[0]?.focus?.()
+      }, [])
+
+      useEffect(() => {
+        const onPointerDown = (event) => {
+          if (menuRef.current !== null && !menuRef.current.contains(event.target)) onDismiss()
+        }
+        const onKeyDown = (event) => {
+          if (event.key === 'Escape') { event.preventDefault(); onDismiss(); return }
+          if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            setActiveIndex(index => {
+              const next = (index + 1) % items.length
+              itemRefs.current[next]?.focus?.()
+              return next
+            })
+            return
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            setActiveIndex(index => {
+              const next = (index - 1 + items.length) % items.length
+              itemRefs.current[next]?.focus?.()
+              return next
+            })
+          }
+        }
+        document.addEventListener('mousedown', onPointerDown, true)
+        document.addEventListener('keydown', onKeyDown, true)
+        return () => {
+          document.removeEventListener('mousedown', onPointerDown, true)
+          document.removeEventListener('keydown', onKeyDown, true)
+        }
+      }, [items.length, onDismiss])
+
+      return h('div', {
+        className: 'rsp-menu',
+        role: 'menu',
+        ref: menuRef,
+        'aria-label': t('action.aria'),
+        onMouseDown: event => { event.stopPropagation() },
+      },
+        items.map((item, index) => h('button', {
+          key: item.id,
+          type: 'button',
+          role: 'menuitem',
+          className: 'rsp-menuItem',
+          ...(item.danger === true ? { 'data-danger': '' } : {}),
+          tabIndex: index === activeIndex ? 0 : -1,
+          ref: (node) => { itemRefs.current[index] = node },
+          onFocus: () => { setActiveIndex(index) },
+          onClick: () => { onPick(item.id) },
+        },
+          h('span', { className: 'rsp-menuIcon' }, item.icon),
+          h('span', { className: 'rsp-menuLabel' }, item.label),
+        )),
+      )
+    }
+
+    /** 侧边栏底部的电源入口（一级按钮 -> 二级菜单 -> 确认框）。 */
     function RestartFooterAction(props) {
       const t = typeof props.t === 'function' ? props.t : (key => key)
       const wide = props.wide === true
-      const [open, setOpen] = useState(false)
+      const [menuOpen, setMenuOpen] = useState(false)
+      const [anchorRect, setAnchorRect] = useState(null)
+      // 当前要执行的动作为 'restart' | 'shutdown' | null；null 表示对话框没开。
+      const [action, setAction] = useState(null)
       const [status, setStatus] = useState(null)
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState(null)
+      const triggerRef = useRef(null)
       const mounted = useRef(true)
       useStyles()
 
@@ -199,21 +407,35 @@ div[class*="footerActions"]{position:static}
         return () => { mounted.current = false }
       }, [])
 
-      const close = useCallback(() => {
+      const dismissMenu = useCallback(() => { setMenuOpen(false) }, [])
+
+      const toggleMenu = useCallback(() => {
+        setMenuOpen(value => {
+          if (value) return false
+          const rect = triggerRef.current?.getBoundingClientRect?.()
+          if (rect !== undefined && rect !== null) {
+            setAnchorRect({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right })
+          }
+          return true
+        })
+      }, [])
+
+      const closeDialog = useCallback(() => {
         if (busy === true) return
-        setOpen(false)
+        setAction(null)
         setError(null)
       }, [busy])
 
-      const openDialog = useCallback(async () => {
-        setOpen(true)
+      // 选中菜单项：先关菜单，再读状态、开确认框。
+      const pick = useCallback(async (id) => {
+        setMenuOpen(false)
+        setAction(id === 'shutdown' ? 'shutdown' : 'restart')
         setError(null)
         setStatus(null)
         try {
           const next = await fetchStatus()
           if (!mounted.current) return
           setStatus(next)
-          // 环境不支持时直接把原因作为错误文案展示，省掉一步点击。
           if (next.supported !== true) {
             setError(next.reason === 'not-desktop' ? t('dialog.notDesktop') : t('dialog.unsupported'))
           }
@@ -225,11 +447,13 @@ div[class*="footerActions"]{position:static}
       const confirm = useCallback(async (force) => {
         setBusy(true)
         setError(null)
+        const isShutdown = action === 'shutdown'
+        const failedText = isShutdown ? t('shutdown.failed') : t('dialog.failed')
         try {
-          const result = await requestRestart(force)
+          const result = isShutdown ? await requestShutdown(force) : await requestRestart(force)
           if (!mounted.current) return
           if (result.status === 409 && result.payload !== null && result.payload.reason === 'active-tasks') {
-            // Host 说有活动任务：把状态补全，让按钮变成「仍然重启」。
+            // Host 说有活动任务：把状态补全，让按钮变成「仍然重启 / 仍然关闭」。
             setStatus(previous => ({
               ...(previous ?? {}),
               supported: true,
@@ -240,46 +464,60 @@ div[class*="footerActions"]{position:static}
             return
           }
           if (result.payload === null || result.payload.ok !== true) {
-            setError(t('dialog.failed'))
+            setError(failedText)
             setBusy(false)
             return
           }
-          // 成功：应用即将关闭，保持「正在重启」直到本页面消失。
+          // 成功：应用即将关闭，保持「正在重启/正在关闭」直到本页面消失。
         } catch {
           if (!mounted.current) return
-          setError(t('dialog.failed'))
+          setError(failedText)
           setBusy(false)
         }
-      }, [t])
+      }, [action, t])
 
-      // Esc 关闭。
+      // 菜单开着时点按钮以外的地方由菜单自己处理；这里只保留 Esc 关闭对话框。
       useEffect(() => {
-        if (!open) return undefined
+        if (action === null) return undefined
         const onKeyDown = (event) => {
-          if (event.key === 'Escape' && busy !== true) { event.preventDefault(); close() }
+          if (event.key === 'Escape' && busy !== true) { event.preventDefault(); closeDialog() }
         }
         document.addEventListener('keydown', onKeyDown, true)
         return () => { document.removeEventListener('keydown', onKeyDown, true) }
-      }, [open, busy, close])
+      }, [action, busy, closeDialog])
 
-      const label = t('action.label')
       const aria = t('action.aria')
+      const isShutdown = action === 'shutdown'
 
       return h('div', { 'data-dsh-restart-plugin': '' },
         h('button', {
           type: 'button',
           className: 'rsp-btn',
+          ref: triggerRef,
           ...(wide ? {} : { 'data-rail': '' }),
           'aria-label': aria,
+          'aria-haspopup': 'menu',
+          'aria-expanded': menuOpen,
           title: aria,
-          onClick: () => { void openDialog() },
+          onClick: toggleMenu,
         },
-          h(RestartIcon, { size: wide ? 16 : 18 }),
+          h(PowerIcon, { size: wide ? 16 : 18 }),
           // 展开态保留「重启」两字作为显著标识；收起成轨道时只有图标。
-          wide ? h('span', { className: 'rsp-label' }, label) : null,
+          wide ? h('span', { className: 'rsp-label' }, t('action.label')) : null,
         ),
-        open
-          ? h(RestartDialog, { t, status, busy, error, onCancel: close, onConfirm: confirm })
+        menuOpen
+          ? h(RestartMenu, { t, anchorRect, onPick: pick, onDismiss: dismissMenu })
+          : null,
+        action !== null
+          ? h(RestartDialog, {
+            t,
+            status,
+            busy,
+            error,
+            variant: isShutdown ? 'shutdown' : 'restart',
+            onCancel: closeDialog,
+            onConfirm: confirm,
+          })
           : null,
       )
     }

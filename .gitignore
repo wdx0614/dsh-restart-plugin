@@ -3,3 +3,13 @@ node_modules/
 .ai_backup/
 .ai_trash/
 *.log
+
+# 第三方参考插件（别人的 MIT 代码，只作阅读，不并入本仓库）
+dsh-power-menu-0.1.16 克隆/
+
+# 内部开发笔记，不属于插件本身
+docs/skill沉淀决策.md
+HANDOVER.md
+PROGRESS.md
+DECISIONS.md
+tools/publish-to-github.mjs

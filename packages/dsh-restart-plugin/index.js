@@ -371,6 +371,38 @@ export function requestRestart(ctx, options = {}) {
 }
 
 /**
+ * 关闭整个应用（不重新启动）。
+ *
+ * 与 {@link requestRestart} 共用同一套「先温和、后兜底」的退出策略，
+ * 区别只在于**不拉看门狗**——没有人去重新打开应用，这正是「关闭」的语义。
+ *
+ * @param ctx - Host 上下文。
+ * @param options - 延迟与兜底退出时间。
+ * @returns 启动结果（立刻回给浏览器）。
+ */
+export function requestShutdown(ctx, options = {}) {
+  const support = detectRestartSupport()
+  if (!support.supported) return { ok: false, reason: support.reason }
+  const shellPid = typeof process.ppid === 'number' ? process.ppid : 0
+  const delayMs = options.delayMs ?? 250
+  const timer = setTimeout(() => {
+    // 与重启相同的顺序原因见 requestRestart：先结束外壳，再让 Host 走优雅退出。
+    try {
+      if (shellPid > 0) process.kill(shellPid)
+    } catch (error) {
+      ctx.logger?.('dsh-restart-plugin')?.warn?.('shell termination failed: %s', messageOf(error))
+    }
+    const backstop = setTimeout(() => {
+      try { ctx.logger?.('dsh-restart-plugin')?.warn?.('graceful shutdown exceeded; exiting') } catch { /* 忽略 */ }
+      process.exit(0)
+    }, options.exitAfterMs ?? 10_000)
+    backstop.unref?.()
+  }, delayMs)
+  timer.unref?.()
+  return { ok: true }
+}
+
+/**
  * 注册 Host 半。
  * @param ctx - 已启动的 Host 上下文（已 inject webServer）。
  */
@@ -438,6 +470,28 @@ async function handleRequest(ctx, req, res) {
     if (!result.ok) return send(res, 500, { ok: false, ...result })
     // 先把 202 写出去，界面才能显示「正在重启」，再真正动手。
     send(res, 202, { ok: true, restarting: true, logPath: result.logPath })
+    return undefined
+  }
+
+  if (req.method === 'POST' && route === '/shutdown') {
+    const body = await readJson(req)
+    const support = detectRestartSupport()
+    if (!support.supported) return send(res, 409, { ok: false, reason: support.reason })
+    const work = await inspectActiveWork(ctx)
+    const force = body !== null && body.force === true
+    // 与重启一致：有活动任务时必须先经过一次明确确认，绝不静默中断。
+    if ((work.activeTasks || work.scheduledTasks) && !force) {
+      return send(res, 409, {
+        ok: false,
+        reason: 'active-tasks',
+        activeTasks: work.activeTasks,
+        scheduledTasks: work.scheduledTasks,
+      })
+    }
+    const result = requestShutdown(ctx)
+    if (!result.ok) return send(res, 500, { ok: false, ...result })
+    // 先把响应写出去，界面才能显示「正在关闭」，再真正动手。
+    send(res, 202, { ok: true, closing: true })
     return undefined
   }
 
